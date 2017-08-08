@@ -3,7 +3,7 @@
 #define OPT_RESET    0
 #define OPT_MEMORY   1 // can we combine memory and lastmode?
 #define OPT_LASTMODE 2
-#define OPT_LASTGROUP 0
+#define OPT_GROUP    0
 
 #define MAX_MODES 10
 #define MODE_GROUP1_OFFSET 10
@@ -35,17 +35,10 @@ inline void set_output(uint8_t pwm1, uint8_t pwm2) {
   ALT_PWM_LVL = pwm2; 
 }
 
-/* uint8_t read_option(uint8_t o) { */
-/*   return eeprom_read_byte((uint8_t *)(o)); */
-/* } */
-
-/* void write_option(uint8_t o, uint8_t val) { */
-/*   eeprom_write_byte((uint8_t *)o, val); */
-/* } */
-
 /* Function: read_option()
  *
  * Return the value of a given option.
+ *
  */
 uint8_t read_option(uint16_t opt) {
   return eeprom_read_byte((uint8_t *)opt);
@@ -54,6 +47,7 @@ uint8_t read_option(uint16_t opt) {
 /* Function: write_option()
  *
  * Write a value to a given option.
+ *
  */
 void write_option(uint16_t opt, uint8_t val) {
   eeprom_write_byte((uint8_t *)opt, val);
@@ -65,6 +59,7 @@ void write_option(uint16_t opt, uint8_t val) {
  * Both user mode groups are restored to the same values. If a user
  * accidentally manages to switch between a mode groups, when both
  * mode groups are default, they will not be surprised. Right?
+ *
  */
 void reset() {
   uint8_t n = 0;
@@ -72,16 +67,40 @@ void reset() {
   // we've got 10 possible options and 10 possible modes, so loop jam
   for(n = 0; n < 10; n++) {
     // factory options to user options space
-    uint8_t foo = pgm_read_byte(factory_settings+n);
     eeprom_write_byte((uint8_t *)(OPT_OFFSET+n), pgm_read_byte(factory_settings+n));
 
     // factory modes to both user groups 1 and 2
-    eeprom_write_byte((uint8_t *)(MODE_GROUP1_OFFSET), pgm_read_byte(factory_modes+n));
-    eeprom_write_byte((uint8_t *)(MODE_GROUP2_OFFSET), pgm_read_byte(factory_modes+n));
-    foo = 0;
+    eeprom_write_byte((uint8_t *)(MODE_GROUP1_OFFSET+n), pgm_read_byte(factory_modes+n));
+    eeprom_write_byte((uint8_t *)(MODE_GROUP2_OFFSET+n), pgm_read_byte(factory_modes+n));
   }
 }
 
+/* Function: read_modes()
+ *
+ * Take a group number and return an array with the values for that group.
+ *
+ */
+void read_modes(uint8_t *modes, uint8_t group) {
+  
+  uint16_t offset = (group == 0) ? MODE_GROUP1_OFFSET : MODE_GROUP2_OFFSET;
+  eeprom_read_block(modes, (void *)offset, MAX_MODES);
+}
+
+/* Function: charge_otc()
+ *
+ * Charge the capacitor on CAP_PIN so we can read a value from it later
+ *
+ */
+void charge_otc() {
+  DDRB  |= (1 << CAP_PIN);    // Output
+  PORTB |= (1 << CAP_PIN);    // High
+}
+
+/* Function: read_otc()
+ *
+ * Do some magic so we can read the value from the OTC
+ *
+ */
 uint8_t read_otc() {
     DIDR0 |= (1 << CAP_DIDR);
     ADMUX  = (1 << V_REF) | (1 << ADLAR) | CAP_CHANNEL;
@@ -95,16 +114,6 @@ uint8_t read_otc() {
 
 void save_modes(uint8_t *modes, uint8_t group) {
   
-}
-
-// combine read and save?
-void read_modes(uint8_t *modes, uint8_t group) {
-  uint8_t n = 0;
-  
-  while (n < MAX_MODES) {
-    modes[n] = eeprom_read_byte((uint8_t *)(MODE_GROUP1_OFFSET+n));
-    n++;
-  }
 }
 
 void array_insert(uint8_t *a, uint8_t len, uint8_t pos, uint8_t val) {
@@ -137,13 +146,16 @@ int main(void) {
   write_option(OPT_RESET, 1);
   
   // do a factory reset, restoring defaults and original mode groups
-  if (read_option(OPT_RESET) == 1) {
+  if (read_option(OPT_RESET) == 1) 
     reset();
-  }
 
-  //   uint8_t modes[MAX_MODES];
+  // load up our options and mode values
   uint8_t memory = read_option(OPT_MEMORY);
+  uint8_t group = read_option(OPT_GROUP);
   uint8_t mode = (memory == 1) ? read_option(OPT_LASTMODE) : 0;
+  uint8_t modes[MAX_MODES];
+  read_modes(modes, 0); 
+  //  eeprom_read_block(modes, (void *)0, MAX_MODES);
 
   // Set PWM pin to output
   DDRB |= (1 << PWM_PIN);     // enable main channel
@@ -164,8 +176,7 @@ int main(void) {
   }
   
   // charge up the cap
-  DDRB  |= (1 << CAP_PIN);    // Output
-  PORTB |= (1 << CAP_PIN);    // High
+  charge_otc(); 
 
   //   set_level(user_modes[(memory != 0) ? mode : 0]);
 
