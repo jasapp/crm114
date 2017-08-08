@@ -120,7 +120,7 @@ END GROUP
 .rela.plt
  *(.rela.plt)
 
-.text           0x00000000      0x208
+.text           0x00000000      0x4f2
  *(.vectors)
  .vectors       0x00000000       0x1e /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/crtattiny25.o
                 0x00000000                __vectors
@@ -135,10 +135,10 @@ END GROUP
                 0x0000001e                __trampolines_end = .
  *(.progmem*)
  .progmem.data  0x0000001e       0x94 crm114.o
-                0x0000001e                factory_modes
-                0x00000028                factory_settings
-                0x00000032                ramp_FET
-                0x00000072                ramp_7135
+                0x0000001e                ramp_7135
+                0x0000005e                ramp_FET
+                0x0000009e                factory_settings
+                0x000000a8                factory_modes
                 0x000000b2                . = ALIGN (0x2)
  *(.jumptables)
  *(.jumptables*)
@@ -193,49 +193,48 @@ END GROUP
                 0x000000be                __vector_8
                 0x000000be                __vector_14
                 0x000000be                __vector_10
- .text          0x000000c0       0xd4 crm114.o
+ .text          0x000000c0      0x402 crm114.o
                 0x000000c0                read_option
-                0x000000c2                write_option
-                0x000000c4                reset
-                0x0000010e                read_otc
-                0x00000126                save_modes
-                0x00000128                read_modes
-                0x00000154                array_insert
-                0x0000015e                array_delete
-                0x00000168                set_mode
-                0x00000180                next_mode
- .text          0x00000194        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
- .text          0x00000194        0x0 /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/libattiny25.a(eerd_byte.o)
- .text          0x00000194        0x0 /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/libattiny25.a(eewr_byte.o)
-                0x00000194                . = ALIGN (0x2)
+                0x000000de                write_option
+                0x00000102                reset
+                0x000001b2                read_otc
+                0x0000022c                save_modes
+                0x00000248                read_modes
+                0x0000029a                array_insert
+                0x00000302                array_delete
+                0x00000366                set_mode
+                0x000003c6                next_mode
+                0x00000408                main
+ .text          0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+ .text          0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/libattiny25.a(eerd_byte.o)
+ .text          0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/libattiny25.a(eewr_byte.o)
+                0x000004c2                . = ALIGN (0x2)
  *(.text.*)
- .text.startup  0x00000194       0x44 crm114.o
-                0x00000194                main
  .text.libgcc.mul
-                0x000001d8        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+                0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
  .text.libgcc.div
-                0x000001d8        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
- .text.libgcc   0x000001d8        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+                0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+ .text.libgcc   0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
  .text.libgcc.prologue
-                0x000001d8        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+                0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
  .text.libgcc.builtins
-                0x000001d8        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+                0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
  .text.libgcc.fmul
-                0x000001d8        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+                0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
  .text.libgcc.fixed
-                0x000001d8        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+                0x000004c2        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
  .text.avr-libc
-                0x000001d8       0x10 /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/libattiny25.a(eerd_byte.o)
-                0x000001d8                eeprom_read_byte
+                0x000004c2       0x10 /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/libattiny25.a(eerd_byte.o)
+                0x000004c2                eeprom_read_byte
  .text.avr-libc
-                0x000001e8       0x1c /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/libattiny25.a(eewr_byte.o)
-                0x000001e8                eeprom_write_byte
-                0x000001ea                eeprom_write_r18
-                0x00000204                . = ALIGN (0x2)
+                0x000004d2       0x1c /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/libattiny25.a(eewr_byte.o)
+                0x000004d2                eeprom_write_byte
+                0x000004d4                eeprom_write_r18
+                0x000004ee                . = ALIGN (0x2)
  *(.fini9)
- .fini9         0x00000204        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
-                0x00000204                exit
-                0x00000204                _exit
+ .fini9         0x000004ee        0x0 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+                0x000004ee                exit
+                0x000004ee                _exit
  *(.fini9)
  *(.fini8)
  *(.fini8)
@@ -254,11 +253,11 @@ END GROUP
  *(.fini1)
  *(.fini1)
  *(.fini0)
- .fini0         0x00000204        0x4 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
+ .fini0         0x000004ee        0x4 /usr/lib/gcc/avr/4.9.2/avr25/tiny-stack/libgcc.a(_exit.o)
  *(.fini0)
-                0x00000208                _etext = .
+                0x000004f2                _etext = .
 
-.data           0x00800060        0x0 load address 0x00000208
+.data           0x00800060        0x0 load address 0x000004f2
                 0x00800060                PROVIDE (__data_start, .)
  *(.data)
  .data          0x00800060        0x0 /usr/lib/gcc/avr/4.9.2/../../../avr/lib/avr25/tiny-stack/crtattiny25.o
@@ -285,8 +284,8 @@ END GROUP
  *(.bss*)
  *(COMMON)
                 0x00800060                PROVIDE (__bss_end, .)
-                0x00000208                __data_load_start = LOADADDR (.data)
-                0x00000208                __data_load_end = (__data_load_start + SIZEOF (.data))
+                0x000004f2                __data_load_start = LOADADDR (.data)
+                0x000004f2                __data_load_end = (__data_load_start + SIZEOF (.data))
 
 .noinit         0x00800060        0x0
                 0x00800060                PROVIDE (__noinit_start, .)
@@ -314,13 +313,13 @@ END GROUP
 .user_signatures
  *(.user_signatures*)
 
-.stab           0x00000000      0xaa4
+.stab           0x00000000      0xd5c
  *(.stab)
- .stab          0x00000000      0xaa4 crm114.o
+ .stab          0x00000000      0xd5c crm114.o
 
-.stabstr        0x00000000      0xe18
+.stabstr        0x00000000      0xe5f
  *(.stabstr)
- .stabstr       0x00000000      0xe18 crm114.o
+ .stabstr       0x00000000      0xe5f crm114.o
 
 .stab.excl
  *(.stab.excl)

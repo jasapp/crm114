@@ -3,6 +3,7 @@
 #define OPT_RESET    0
 #define OPT_MEMORY   1 // can we combine memory and lastmode?
 #define OPT_LASTMODE 2
+#define OPT_LASTGROUP 0
 
 #define MAX_MODES 10
 #define MODE_GROUP1_OFFSET 10
@@ -68,19 +69,16 @@ void write_option(uint16_t opt, uint8_t val) {
 void reset() {
   uint8_t n = 0;
 
-  // use eeprom_read_block here instead?
   // we've got 10 possible options and 10 possible modes, so loop jam
   for(n = 0; n < 10; n++) {
-
     // factory options to user options space
-    eeprom_write_byte((uint8_t *)(OPT_OFFSET+n),
-		      eeprom_read_byte((uint8_t *)(factory_settings+n)));
+    uint8_t foo = pgm_read_byte(factory_settings+n);
+    eeprom_write_byte((uint8_t *)(OPT_OFFSET+n), pgm_read_byte(factory_settings+n));
 
     // factory modes to both user groups 1 and 2
-    eeprom_write_byte((uint8_t *)(MODE_GROUP1_OFFSET), 
-		      eeprom_read_byte((uint8_t *)(factory_modes+n)));
-    eeprom_write_byte((uint8_t *)(MODE_GROUP2_OFFSET),
-		      eeprom_read_byte((uint8_t *)(factory_modes+n)));
+    eeprom_write_byte((uint8_t *)(MODE_GROUP1_OFFSET), pgm_read_byte(factory_modes+n));
+    eeprom_write_byte((uint8_t *)(MODE_GROUP2_OFFSET), pgm_read_byte(factory_modes+n));
+    foo = 0;
   }
 }
 
@@ -122,6 +120,7 @@ void array_delete(uint8_t *a, uint8_t len, uint8_t pos) {
 }
 
 void set_mode(uint8_t *modes, uint8_t level) {
+  
   PWM_LVL = pgm_read_byte(ramp_FET + level); 
   ALT_PWM_LVL = pgm_read_byte(ramp_7135 + level);
 }
@@ -144,7 +143,7 @@ int main(void) {
 
   //   uint8_t modes[MAX_MODES];
   uint8_t memory = read_option(OPT_MEMORY);
-  uint8_t mode = (memory == 1) ? read_option(OPT_MEMORY) : 0;
+  uint8_t mode = (memory == 1) ? read_option(OPT_LASTMODE) : 0;
 
   // Set PWM pin to output
   DDRB |= (1 << PWM_PIN);     // enable main channel

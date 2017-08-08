@@ -4,7 +4,7 @@ PROG   := usbasp
 MCU    := attiny25
 TARGET := crm114
 
-COMMONFLAGS = -g -Os -funsigned-char -funsigned-bitfields \
+COMMONFLAGS = -g3 -O0 -funsigned-char -funsigned-bitfields \
   -fpack-struct -fshort-enums -Wall -mmcu=$(MCU) 
 
 CFLAGS = -std=gnu99 $(COMMONFLAGS) -Wa,-adhlns=$(<:.c=.lst) -I/usr/local/include/simavr/avr/ -I/usr/local/include/simavr/ \
