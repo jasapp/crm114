@@ -1,10 +1,12 @@
-#define OPTION_RESET (EEPSIZE-1)
-#define OPTION_MEMORY (EEPSIZE-2)
-#define OPTION_LASTMODE (EEPSIZE-3)
+#define MAX_OPTIONS 10
+#define OPT_OFFSET   0
+#define OPT_RESET    0
+#define OPT_MEMORY   1 // can we combine memory and lastmode?
+#define OPT_LASTMODE 2
 
 #define MAX_MODES 10
-#define MODES_OFFSET (EEPSIZE-10)
-#define TYPES_OFFSET (EEPSIZE-20)
+#define MODE_GROUP1_OFFSET 10
+#define MODE_GROUP2_OFFSET 20
 
 #include "attiny25.h"
 
@@ -22,12 +24,10 @@ PROGMEM const uint8_t ramp_7135[] = { RAMP_7135 };
 PROGMEM const uint8_t ramp_FET[]  = { RAMP_FET };
 
 // Modes (gets set when the light starts up based on saved config values)
-PROGMEM const uint8_t factory_settings[] = { 0,  0,  0,  0, 0, 0, 0, 0, 0, 0 };
+PROGMEM const uint8_t factory_settings[] = { 0,  1,  0,  0, 0, 0, 0, 0, 0, 0 };
 PROGMEM const uint8_t factory_modes[]    = { 3, 11, 30, 58, 0, 0, 0, 0, 0, 0 };
-PROGMEM const uint8_t factory_types[]    = { 0,  0,  0,  0,  1, 0, 0, 0, 0, 0 };
 
-uint8_t user_modes[MAX_MODES] = { 3, 11, 30, 58, 0, 0, 0, 0, 0, 0 };
-uint8_t user_types[MAX_MODES] = { 0,  0,  0,  0,  1, 0, 0, 0, 0, 0 };
+// uint8_t user_mode[MAX_MODES] = { 3, 11, 30, 58, 0, 0, 0, 0, 0, 0 };
 
 inline void set_output(uint8_t pwm1, uint8_t pwm2) {
   PWM_LVL = pwm1;
@@ -42,6 +42,48 @@ inline void set_output(uint8_t pwm1, uint8_t pwm2) {
 /*   eeprom_write_byte((uint8_t *)o, val); */
 /* } */
 
+/* Function: read_option()
+ *
+ * Return the value of a given option.
+ */
+uint8_t read_option(uint16_t opt) {
+  return eeprom_read_byte((uint8_t *)opt);
+}
+
+/* Function: write_option()
+ *
+ * Write a value to a given option.
+ */
+void write_option(uint16_t opt, uint8_t val) {
+  eeprom_write_byte((uint8_t *)opt, val);
+}
+
+/* Function: reset() 
+ *
+ * Restore all options and mode groups to their original values
+ * Both user mode groups are restored to the same values. If a user
+ * accidentally manages to switch between a mode groups, when both
+ * mode groups are default, they will not be surprised. Right?
+ */
+void reset() {
+  uint8_t n = 0;
+
+  // use eeprom_read_block here instead?
+  // we've got 10 possible options and 10 possible modes, so loop jam
+  for(n = 0; n < 10; n++) {
+
+    // factory options to user options space
+    eeprom_write_byte((uint8_t *)(OPT_OFFSET+n),
+		      eeprom_read_byte((uint8_t *)(factory_settings+n)));
+
+    // factory modes to both user groups 1 and 2
+    eeprom_write_byte((uint8_t *)(MODE_GROUP1_OFFSET), 
+		      eeprom_read_byte((uint8_t *)(factory_modes+n)));
+    eeprom_write_byte((uint8_t *)(MODE_GROUP2_OFFSET),
+		      eeprom_read_byte((uint8_t *)(factory_modes+n)));
+  }
+}
+
 uint8_t read_otc() {
     DIDR0 |= (1 << CAP_DIDR);
     ADMUX  = (1 << V_REF) | (1 << ADLAR) | CAP_CHANNEL;
@@ -53,32 +95,16 @@ uint8_t read_otc() {
     return ADCH;
 }
 
-uint8_t mode_count(uint8_t *m) {
-  uint8_t n = 0;
+void save_modes(uint8_t *modes, uint8_t group) {
   
-  while (m[n] != 0) {
-    ++n;
-  }
-
-  return n;
-}
-
-void save_modes() {
-  uint8_t n = 0; 
-  while (n < MAX_MODES) {
-    eeprom_write_byte((uint8_t *)(MODES_OFFSET-n), user_modes[n]);
-    eeprom_write_byte((uint8_t *)(TYPES_OFFSET-n), user_types[n]);
-    n++;
-  }
 }
 
 // combine read and save?
-void read_modes() {
+void read_modes(uint8_t *modes, uint8_t group) {
   uint8_t n = 0;
   
   while (n < MAX_MODES) {
-    user_modes[n] = eeprom_read_byte((uint8_t *)MODES_OFFSET-n);
-    user_types[n] = eeprom_read_byte((uint8_t *)TYPES_OFFSET-n);
+    modes[n] = eeprom_read_byte((uint8_t *)(MODE_GROUP1_OFFSET+n));
     n++;
   }
 }
@@ -95,7 +121,7 @@ void array_delete(uint8_t *a, uint8_t len, uint8_t pos) {
   a[len] = 0; 
 }
 
-void set_level(uint8_t level) {
+void set_mode(uint8_t *modes, uint8_t level) {
   PWM_LVL = pgm_read_byte(ramp_FET + level); 
   ALT_PWM_LVL = pgm_read_byte(ramp_7135 + level);
 }
@@ -105,16 +131,20 @@ uint8_t next_mode(uint8_t *m, uint8_t index) {
 }
 
 int main(void) {
-
-  // write_option(127, 3);
-  // write_option(126, 1);
-
-  eeprom_write_byte((uint8_t *)(OPTION_LASTMODE), 0);
-  eeprom_write_byte((uint8_t *)(OPTION_MEMORY), 1);
-
+  // do this fast, like a bunny
   uint8_t cap_val = read_otc();
-  uint8_t mode = eeprom_read_byte((uint8_t *)(OPTION_LASTMODE));
-  uint8_t memory = eeprom_read_byte((uint8_t *)(OPTION_MEMORY));
+
+  // always do a reset at the moment
+  write_option(OPT_RESET, 1);
+  
+  // do a factory reset, restoring defaults and original mode groups
+  if (read_option(OPT_RESET) == 1) {
+    reset();
+  }
+
+  //   uint8_t modes[MAX_MODES];
+  uint8_t memory = read_option(OPT_MEMORY);
+  uint8_t mode = (memory == 1) ? read_option(OPT_MEMORY) : 0;
 
   // Set PWM pin to output
   DDRB |= (1 << PWM_PIN);     // enable main channel
@@ -122,9 +152,6 @@ int main(void) {
   
   TCCR0A = PHASE; // Set timer to do PWM for correct output pin and set prescaler timing
   TCCR0B = 0x01; // pre-scaler for timer (1 => 1, 2 => 8, 3 => 64...)
-
-  save_modes();
-  read_modes();
 
   if (cap_val > CAP_SHORT) {
 
@@ -134,17 +161,17 @@ int main(void) {
       mode = 0;
     }
       
-    eeprom_write_byte((uint8_t *)(OPTION_LASTMODE), mode);
+    eeprom_write_byte((uint8_t *)(OPT_LASTMODE), mode);
   }
   
   // charge up the cap
   DDRB  |= (1 << CAP_PIN);    // Output
   PORTB |= (1 << CAP_PIN);    // High
 
-  set_level(user_modes[(memory != 0) ? mode : 0]);
+  //   set_level(user_modes[(memory != 0) ? mode : 0]);
 
   while(1) {
-    next_mode(user_modes, mode);
+    //    next_mode(user_modes, mode);
     //   _delay_ms(100);
   }
 }
