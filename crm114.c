@@ -155,12 +155,10 @@ int main(void) {
   uint8_t mode = (memory == 1) ? read_option(OPT_LASTMODE) : 0;
   uint8_t modes[MAX_MODES];
   read_modes(modes, 0); 
-  //  eeprom_read_block(modes, (void *)0, MAX_MODES);
 
   // Set PWM pin to output
   DDRB |= (1 << PWM_PIN);     // enable main channel
   DDRB |= (1 << ALT_PWM_PIN); // enable second channel
-  
   TCCR0A = PHASE; // Set timer to do PWM for correct output pin and set prescaler timing
   TCCR0B = 0x01; // pre-scaler for timer (1 => 1, 2 => 8, 3 => 64...)
 
