@@ -5,6 +5,7 @@ Stuff that works:
 Features We'd like: 
  * dynamic mode groups
  * Two mode groups
+ * programming mode (oh yeah)
  * Hidden mode
  * programming lock
  * Temperature Control (pid?)
