@@ -1,9 +1,11 @@
-Features We'd like: 
- * factory reset
- * dynamic mode groups
+Stuff that works:
  * configurable memory
+ * factory reset
+
+Features We'd like: 
+ * dynamic mode groups
  * Two mode groups
  * Hidden mode
  * programming lock
- * Temperature Control
+ * Temperature Control (pid?)
  * low voltage protection
