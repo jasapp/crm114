@@ -1,9 +1,16 @@
 #define MAX_OPTIONS 10
+
+#define RESET 0
+#define MEMORY 1
+#define LASTMODE 0
+#define GROUP 0
+
+// these are _offsets_, not the configuration values. don't change them. 
 #define OPT_OFFSET   0
 #define OPT_RESET    0
 #define OPT_MEMORY   1 // can we combine memory and lastmode?
 #define OPT_LASTMODE 2
-#define OPT_GROUP    0
+#define OPT_GROUP    3
 
 #define MAX_MODES 10
 #define MODE_GROUP1_OFFSET 10
@@ -25,10 +32,8 @@ PROGMEM const uint8_t ramp_7135[] = { RAMP_7135 };
 PROGMEM const uint8_t ramp_FET[]  = { RAMP_FET };
 
 // Modes (gets set when the light starts up based on saved config values)
-PROGMEM const uint8_t factory_settings[] = { 0,  1,  0,  0, 0, 0, 0, 0, 0, 0 };
+PROGMEM const uint8_t factory_settings[] = { RESET, MEMORY, LASTMODE, GROUP, 0, 0, 0, 0, 0, 0 };
 PROGMEM const uint8_t factory_modes[]    = { 3, 11, 30, 58, 0, 0, 0, 0, 0, 0 };
-
-// uint8_t user_mode[MAX_MODES] = { 3, 11, 30, 58, 0, 0, 0, 0, 0, 0 };
 
 inline void set_output(uint8_t pwm1, uint8_t pwm2) {
   PWM_LVL = pwm1;
@@ -128,33 +133,45 @@ void array_delete(uint8_t *a, uint8_t len, uint8_t pos) {
   a[len] = 0; 
 }
 
-void set_mode(uint8_t *modes, uint8_t level) {
-  
-  PWM_LVL = pgm_read_byte(ramp_FET + level); 
-  ALT_PWM_LVL = pgm_read_byte(ramp_7135 + level);
+/* Function: set_mode()
+ *
+ * Take an array of modes and an index, and set our PWM pins accordingly.
+ *
+ */
+void set_mode(uint8_t *modes, uint8_t index) {
+  PWM_LVL = pgm_read_byte(ramp_FET + modes[index]); 
+  ALT_PWM_LVL = pgm_read_byte(ramp_7135 + modes[index]);
+  write_option(OPT_LASTMODE, index);
 }
 
-uint8_t next_mode(uint8_t *m, uint8_t index) {
-  return ((m[index+1]) ? : m[0]);
+/* Function: next_mode()
+ *
+ * Take an array of mode levels and an index, advance the index (looping if necessary).
+ * Return the new index.
+ *
+ */
+uint8_t next_mode(uint8_t *modes, uint8_t previous_index) {
+  uint8_t index = modes[previous_index+1] ? previous_index+1 : 0;
+  return index;
 }
 
 int main(void) {
   // do this fast, like a bunny
   uint8_t cap_val = read_otc();
-
-  // always do a reset at the moment
-  write_option(OPT_RESET, 1);
   
   // do a factory reset, restoring defaults and original mode groups
-  if (read_option(OPT_RESET) == 1) 
+  // on first boot, we're seeing -1 here. on a factory reset, we'll set it to 1
+  // so if it's not false. Yeah... 
+  if (read_option(OPT_RESET) != 0) {
     reset();
+  }
 
   // load up our options and mode values
   uint8_t memory = read_option(OPT_MEMORY);
   uint8_t group = read_option(OPT_GROUP);
-  uint8_t mode = (memory == 1) ? read_option(OPT_LASTMODE) : 0;
+  uint8_t mode_index = (memory == 1) ? read_option(OPT_LASTMODE) : 0;
   uint8_t modes[MAX_MODES];
-  read_modes(modes, 0); 
+  read_modes(modes, 0);
 
   // Set PWM pin to output
   DDRB |= (1 << PWM_PIN);     // enable main channel
@@ -162,24 +179,18 @@ int main(void) {
   TCCR0A = PHASE; // Set timer to do PWM for correct output pin and set prescaler timing
   TCCR0B = 0x01; // pre-scaler for timer (1 => 1, 2 => 8, 3 => 64...)
 
-  if (cap_val > CAP_SHORT) {
+  // advance the mode if we've seen a short press
+  if (cap_val > CAP_SHORT) 
+    mode_index = next_mode(modes, mode_index);
 
-    if (mode < 3) {
-      mode++;
-    } else {
-      mode = 0;
-    }
-      
-    eeprom_write_byte((uint8_t *)(OPT_LASTMODE), mode);
-  }
+  // turn the light on
+  set_mode(modes, mode_index); 
   
   // charge up the cap
   charge_otc(); 
 
-  //   set_level(user_modes[(memory != 0) ? mode : 0]);
-
-  while(1) {
-    //    next_mode(user_modes, mode);
-    //   _delay_ms(100);
-  }
+  /* while(1) { */
+  /*   mode_index = next_mode(modes, mode_index); */
+  /*   _delay_ms(500);  */
+  /* } */
 }
