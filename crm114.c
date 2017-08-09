@@ -5,6 +5,8 @@
 #define LASTMODE 0
 #define GROUP 0
 
+#define CONFIG_DELAY 1300 // the delay upon entering configuration mode when the light is off
+
 // these are _offsets_, not the configuration values. don't change them. 
 #define OPT_OFFSET   0
 #define OPT_RESET    0
@@ -12,7 +14,7 @@
 #define OPT_LASTMODE 2
 #define OPT_GROUP    3
 
-#define MAX_MODES 10
+#define MAX_MODES 10 
 #define MODE_GROUP1_OFFSET 10
 #define MODE_GROUP2_OFFSET 20
 
@@ -25,7 +27,7 @@
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
 
-#define RAMP_7135 3,3,4,5,6,8,10,12,15,19,23,28,33,40,47,55,63,73,84,95,108,122,137,153,171,190,210,232,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,0
+#define RAMP_7135 0,3,4,5,6,8,10,12,15,19,23,28,33,40,47,55,63,73,84,95,108,122,137,153,171,190,210,232,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,0
 #define RAMP_FET 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,5,8,11,14,18,22,26,30,34,39,44,49,54,59,65,71,77,84,91,98,105,113,121,129,137,146,155,164,174,184,194,205,216,255
 
 PROGMEM const uint8_t ramp_7135[] = { RAMP_7135 };
@@ -33,9 +35,18 @@ PROGMEM const uint8_t ramp_FET[]  = { RAMP_FET };
 
 // Modes (gets set when the light starts up based on saved config values)
 PROGMEM const uint8_t factory_settings[] = { RESET, MEMORY, LASTMODE, GROUP, 0, 0, 0, 0, 0, 0 };
-PROGMEM const uint8_t factory_modes[]    = { 3, 11, 30, 58, 0, 0, 0, 0, 0, 0 };
+PROGMEM const uint8_t factory_modes[]    = { 3, 11, 20, 30, 0, 0, 0, 0, 0, 0 };
 
-inline void set_output(uint8_t pwm1, uint8_t pwm2) {
+// don't initialize to zero during startup
+uint8_t fast_press_count __attribute__ ((section (".noinit")));
+
+/* Function: set_output()
+ *
+ * Set the output on the PWM pins. A little more low level than set_mode so we can set levels
+ * that aren't in the current mode array.
+ *
+ */
+void set_output(uint8_t pwm1, uint8_t pwm2) {
   PWM_LVL = pwm1;
   ALT_PWM_LVL = pwm2; 
 }
@@ -139,8 +150,8 @@ void array_delete(uint8_t *a, uint8_t len, uint8_t pos) {
  *
  */
 void set_mode(uint8_t *modes, uint8_t index) {
-  PWM_LVL = pgm_read_byte(ramp_FET + modes[index]); 
-  ALT_PWM_LVL = pgm_read_byte(ramp_7135 + modes[index]);
+  set_output(pgm_read_byte(ramp_FET + modes[index]),
+	     pgm_read_byte(ramp_7135 + modes[index]));
   write_option(OPT_LASTMODE, index);
 }
 
@@ -156,6 +167,7 @@ uint8_t next_mode(uint8_t *modes, uint8_t previous_index) {
 }
 
 int main(void) {
+
   // do this fast, like a bunny
   uint8_t cap_val = read_otc();
   
@@ -179,18 +191,38 @@ int main(void) {
   TCCR0A = PHASE; // Set timer to do PWM for correct output pin and set prescaler timing
   TCCR0B = 0x01; // pre-scaler for timer (1 => 1, 2 => 8, 3 => 64...)
 
-  // advance the mode if we've seen a short press
-  if (cap_val > CAP_SHORT) 
+  // advance the mode if we've seen a fast press
+   if (cap_val > CAP_SHORT) {
     mode_index = next_mode(modes, mode_index);
-
+    ++fast_press_count;
+  } else {
+    // otherwise, reset our count
+    fast_press_count = 0; 
+  }
   // turn the light on
   set_mode(modes, mode_index); 
   
   // charge up the cap
   charge_otc(); 
 
-  /* while(1) { */
-  /*   mode_index = next_mode(modes, mode_index); */
-  /*   _delay_ms(500);  */
-  /* } */
+  while(1) {
+    // do something better here...
+    // maybe alternate between fast and slow presses to enter config?
+    if(fast_press_count > 8) {
+      
+      set_output(0,0);
+      _delay_ms(CONFIG_DELAY);
+
+      
+      fast_press_count = 0;
+      uint8_t n = 0;
+
+      while(n < 100) {
+	mode_index = next_mode(modes, mode_index);
+	set_mode(modes, mode_index); 
+	_delay_ms(50);
+	++n;
+      }
+    }
+  }
 }
