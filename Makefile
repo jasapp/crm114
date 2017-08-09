@@ -74,6 +74,7 @@ run:
 
 clean:
 	-rm *.hex
+	-rm *.map
 	-rm *.lst
 	-rm *.obj
 	-rm *.elf

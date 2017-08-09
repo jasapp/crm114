@@ -51,6 +51,69 @@ void set_output(uint8_t pwm1, uint8_t pwm2) {
   ALT_PWM_LVL = pwm2; 
 }
 
+/* Function: set_level()
+ *
+ * Take a level, look up it's actual values and call set_output()
+ *
+ */
+void set_level(uint8_t level) {
+  set_output(pgm_read_byte(ramp_FET + level), pgm_read_byte(ramp_7135 + level));
+}
+
+/* Function: ramp()
+ *
+ *
+ *
+ */
+void ramp(uint8_t level, uint8_t speed) {
+  static uint8_t actual_level = 0;
+  int8_t shift_amount;
+  int8_t diff;
+
+  do {
+    diff = level - actual_level;
+    shift_amount = (diff >> 2) | (diff!=0);
+    actual_level += shift_amount;
+    set_level(actual_level);
+    for (uint8_t d = 0; d < speed; d++) {
+      _delay_ms(8);
+    }
+  } while (level != actual_level);
+}
+
+/* Function: ramp_both_ways()
+ *
+ * Ramp up and down. Come on, think of a better name...
+ *
+ */
+void ramp_both_ways(uint8_t top, uint8_t bottom, uint8_t count, uint8_t speed) {
+  uint8_t n = count;
+
+  while (n > 0) {
+    ramp(top, speed);
+    ramp(bottom, speed);
+    n--;
+  }
+}
+
+/* Function: confirm_config()
+ *
+ * Something soothing to let the user know they've entered configuration mode.
+ *
+ */
+void confirm_config() {
+  ramp_both_ways(32, 3, 2, 5);
+}
+
+/* Function: config_change()
+ *
+ * Something soothing to let the user know they've changed a value.
+ *
+ */
+void confirm_change() {
+  ramp_both_ways(32, 3, 2, 2);
+}
+
 /* Function: read_option()
  *
  * Return the value of a given option.
@@ -209,20 +272,17 @@ int main(void) {
     // do something better here...
     // maybe alternate between fast and slow presses to enter config?
     if(fast_press_count > 8) {
-      
-      set_output(0,0);
-      _delay_ms(CONFIG_DELAY);
 
+      set_level(0);
+      _delay_ms(CONFIG_DELAY);
+      confirm_config();
+      _delay_ms(CONFIG_DELAY);
+      confirm_change();
+      _delay_ms(CONFIG_DELAY);
       
       fast_press_count = 0;
       uint8_t n = 0;
-
-      while(n < 100) {
-	mode_index = next_mode(modes, mode_index);
-	set_mode(modes, mode_index); 
-	_delay_ms(50);
-	++n;
-      }
+      set_mode(modes, 0);
     }
   }
 }
