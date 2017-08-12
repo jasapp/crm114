@@ -5,7 +5,8 @@
 #define LASTMODE 0
 #define GROUP 0
 
-#define CONFIG_DELAY 1300 // the delay upon entering configuration mode when the light is off
+#define CONFIG_DELAY 500 // the delay upon entering configuration mode when the light is off
+#define CONFIG_MODE_LEVEL 11 // we use this for confirmation blinks during configuration mode
 
 // these are _offsets_, not the configuration values. don't change them. 
 #define OPT_OFFSET   0
@@ -39,6 +40,9 @@ PROGMEM const uint8_t factory_modes[]    = { 3, 11, 20, 30, 0, 0, 0, 0, 0, 0 };
 
 // don't initialize to zero during startup
 uint8_t fast_press_count __attribute__ ((section (".noinit")));
+uint8_t config_mode __attribute__ ((section (".noinit")));
+uint8_t config_sub_menu __attribute__ ((section (".noinit")));
+uint8_t config_sub_arg __attribute__ ((section (".noinit")));
 
 /* Function: set_output()
  *
@@ -262,8 +266,15 @@ int main(void) {
     // otherwise, reset our count
     fast_press_count = 0; 
   }
+   
   // turn the light on
-  set_mode(modes, mode_index); 
+  if (config_mode != 0) {
+    set_mode(modes, mode_index);
+  } else {
+    set_level(CONFIG_MODE_LEVEL);
+    _delay_ms(50);
+    set_level(0);
+  }
   
   // charge up the cap
   charge_otc(); 
