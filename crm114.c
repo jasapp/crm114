@@ -1,11 +1,11 @@
 #define MAX_OPTIONS 10
 
 #define RESET 0
-#define MEMORY 1
+#define MEMORY 0
 #define LASTMODE 0
 #define GROUP 0
 
-#define CONFIG_DELAY 500 // the delay upon entering configuration mode when the light is off
+#define CONFIG_DELAY 1300 // the delay upon entering configuration mode when the light is off
 #define CONFIG_MODE_LEVEL 11 // we use this for confirmation blinks during configuration mode
 
 // these are _offsets_, not the configuration values. don't change them. 
@@ -36,7 +36,7 @@ PROGMEM const uint8_t ramp_FET[]  = { RAMP_FET };
 
 // Modes (gets set when the light starts up based on saved config values)
 PROGMEM const uint8_t factory_settings[] = { RESET, MEMORY, LASTMODE, GROUP, 0, 0, 0, 0, 0, 0 };
-PROGMEM const uint8_t factory_modes[]    = { 3, 11, 20, 30, 0, 0, 0, 0, 0, 0 };
+PROGMEM const uint8_t factory_modes[]    = { 3, 11, 20, 54, 0, 0, 0, 0, 0, 0 };
 
 // don't initialize to zero during startup
 uint8_t fast_press_count __attribute__ ((section (".noinit")));
@@ -100,6 +100,32 @@ void ramp_both_ways(uint8_t top, uint8_t bottom, uint8_t count, uint8_t speed) {
   }
 }
 
+/* Function: off()
+ *
+ * Turn the LED off. Having a bunch of set_level(0); calls hanging around is ugly.
+ *
+ */
+void off() {
+  set_level(0);
+}
+
+/* Function: blink()
+ *
+ * Don't blink, I know just what you're thinking. 
+ *
+ */
+void blink(uint8_t count) {
+  uint8_t n = count;
+  while(n > 0) {
+    off();
+    set_level(CONFIG_MODE_LEVEL);
+    _delay_ms(100);
+    off();
+    n--;
+  }
+}
+
+
 /* Function: confirm_config()
  *
  * Something soothing to let the user know they've entered configuration mode.
@@ -107,6 +133,7 @@ void ramp_both_ways(uint8_t top, uint8_t bottom, uint8_t count, uint8_t speed) {
  */
 void confirm_config() {
   ramp_both_ways(32, 3, 2, 5);
+  off();
 }
 
 /* Function: config_change()
@@ -116,6 +143,7 @@ void confirm_config() {
  */
 void confirm_change() {
   ramp_both_ways(32, 3, 2, 2);
+  off();
 }
 
 /* Function: read_option()
@@ -146,6 +174,11 @@ void write_option(uint16_t opt, uint8_t val) {
  */
 void reset() {
   uint8_t n = 0;
+
+  fast_press_count = 0;
+  config_mode = 0;
+  config_sub_menu = 0;
+  config_sub_arg = 0;
 
   // we've got 10 possible options and 10 possible modes, so loop jam
   for(n = 0; n < 10; n++) {
@@ -258,42 +291,54 @@ int main(void) {
   TCCR0A = PHASE; // Set timer to do PWM for correct output pin and set prescaler timing
   TCCR0B = 0x01; // pre-scaler for timer (1 => 1, 2 => 8, 3 => 64...)
 
-  // advance the mode if we've seen a fast press
-   if (cap_val > CAP_SHORT) {
+  // if we see a value greater than CAP_SHORT, the user is trying to enter config mode
+  // otherwise let's reset the fast_press_count
+  fast_press_count = (cap_val > CAP_SHORT) ? fast_press_count+1 : 0;
+
+  // if we see a value greater than CAP_MEDIUM, advance the mode
+  if (cap_val > CAP_MEDIUM) {
     mode_index = next_mode(modes, mode_index);
-    ++fast_press_count;
-  } else {
-    // otherwise, reset our count
-    fast_press_count = 0; 
   }
-   
+
   // turn the light on
-  if (config_mode != 0) {
+  if (config_mode != 1) {
     set_mode(modes, mode_index);
   } else {
     set_level(CONFIG_MODE_LEVEL);
-    _delay_ms(50);
-    set_level(0);
   }
-  
+    
+
   // charge up the cap
   charge_otc(); 
 
   while(1) {
+
+    // enter into config mode 
+    if (config_mode == 1) {
+      config_mode = 0; // make sure we exit config mode
+      _delay_ms(CONFIG_DELAY);
+
+      if (fast_press_count == 1) {
+	write_option(OPT_MEMORY, !read_option(OPT_MEMORY));
+	confirm_change();
+      }
+      
+      // reset the fast press count
+      // turn the light back on, in the first mode?
+      // not sure what makes the most sense here
+      fast_press_count = 0; 
+      set_mode(modes, 0); 
+    }
+
     // do something better here...
     // maybe alternate between fast and slow presses to enter config?
-    if(fast_press_count > 8) {
-
-      set_level(0);
-      _delay_ms(CONFIG_DELAY);
+    if(fast_press_count > 10) {
+      off();
+      _delay_ms(1000);
       confirm_config();
-      _delay_ms(CONFIG_DELAY);
-      confirm_change();
-      _delay_ms(CONFIG_DELAY);
-      
-      fast_press_count = 0;
-      uint8_t n = 0;
-      set_mode(modes, 0);
+      config_mode = 1; // enter config mode
+      fast_press_count = 0; // reset fast press
+      _delay_ms(1000);
     }
   }
 }
