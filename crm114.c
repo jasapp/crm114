@@ -1,7 +1,11 @@
 #define MAX_OPTIONS 10
 
+#define NORMAL_MEM 0
+#define NO_MEM 1
+#define HYBRID_MEM 2
+
 #define RESET 0
-#define MEMORY 0
+#define MEMORY HYBRID_MEM
 #define LASTMODE 0
 #define GROUP 0
 
@@ -11,9 +15,10 @@
 // these are _offsets_, not the configuration values. don't change them. 
 #define OPT_OFFSET   0
 #define OPT_RESET    0
-#define OPT_MEMORY   1 // can we combine memory and lastmode?
+#define OPT_MEMORY   1 
 #define OPT_LASTMODE 2
 #define OPT_GROUP    3
+#define OPT_HYBRID_MEM_FLAG 4
 
 #define MAX_MODES 10 
 #define MODE_GROUP1_OFFSET 10
@@ -39,6 +44,7 @@ PROGMEM const uint8_t factory_settings[] = { RESET, MEMORY, LASTMODE, GROUP, 0, 
 PROGMEM const uint8_t factory_modes[]    = { 3, 11, 20, 54, 0, 0, 0, 0, 0, 0 };
 
 // don't initialize to zero during startup
+uint8_t press_count __attribute__ ((section (".noinit")));
 uint8_t fast_press_count __attribute__ ((section (".noinit")));
 uint8_t config_mode __attribute__ ((section (".noinit")));
 uint8_t config_sub_menu __attribute__ ((section (".noinit")));
@@ -262,8 +268,12 @@ void set_mode(uint8_t *modes, uint8_t index) {
  *
  */
 uint8_t next_mode(uint8_t *modes, uint8_t previous_index) {
-  uint8_t index = modes[previous_index+1] ? previous_index+1 : 0;
-  return index;
+  if (read_option(OPT_HYBRID_MEM_FLAG)) {
+    write_option(OPT_HYBRID_MEM_FLAG, 0);
+    return 0;
+  } else {
+    return modes[previous_index+1] ? previous_index+1 : 0;
+  }
 }
 
 int main(void) {
@@ -291,6 +301,12 @@ int main(void) {
   TCCR0A = PHASE; // Set timer to do PWM for correct output pin and set prescaler timing
   TCCR0B = 0x01; // pre-scaler for timer (1 => 1, 2 => 8, 3 => 64...)
 
+  // if this is the second time the light has come on in awhile and we're using hybrid memory
+  // then set the hybrid memory flag
+  if (press_count == 1 && memory == HYBRID_MEM) {
+    write_option(OPT_HYBRID_MEM_FLAG, 1);
+  }
+
   // if we see a value greater than CAP_SHORT, the user is trying to enter config mode
   // if we're already in config mode, relax the speed a little bit
   // otherwise let's reset the fast_press_count
@@ -306,10 +322,20 @@ int main(void) {
   if (cap_val > CAP_MEDIUM) {
     mode_index = next_mode(modes, mode_index);
   // otherwise return to the first mode if memory is not turned on
-  } else if (!memory) {
-    mode_index = 0; 
-  }
+    //  } else if (!memory) {
+    //    mode_index = 0;
 
+  } else {
+   
+   if (memory == NO_MEM) {
+      mode_index = 0;
+    }
+    
+    config_mode = 0;
+    fast_press_count = 0;
+    press_count = 0;
+  }
+  
   // turn the light on
   if (config_mode != 1) {
     set_mode(modes, mode_index);
@@ -321,13 +347,15 @@ int main(void) {
   }
 
   // charge up the cap
-  charge_otc(); 
+  charge_otc();
+  press_count++;
 
   while(1) {
 
     // enter into config mode 
     if (config_mode == 1) {
       _delay_ms(1000);
+      
       if (fast_press_count == 2) {
 	write_option(OPT_MEMORY, !read_option(OPT_MEMORY));
 	confirm_change();
@@ -344,7 +372,7 @@ int main(void) {
 
     // do something better here...
     // maybe alternate between fast and slow presses to enter config?
-    if(fast_press_count > 10) {
+    if(fast_press_count > 10 && fast_press_count < 20) {
       off();
       _delay_ms(1000);
       confirm_config();
