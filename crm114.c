@@ -328,12 +328,12 @@ int main(void) {
   } else {
    
    if (memory == NO_MEM) {
-      mode_index = 0;
-    }
+     mode_index = 0;
+   }
     
-    config_mode = 0;
-    fast_press_count = 0;
-    press_count = 0;
+   config_mode = 0;
+   fast_press_count = 0;
+   press_count = 0;
   }
   
   // turn the light on
