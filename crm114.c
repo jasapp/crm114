@@ -5,7 +5,7 @@
 #define LASTMODE 0
 #define GROUP 0
 
-#define CONFIG_DELAY 1300 // the delay upon entering configuration mode when the light is off
+#define CONFIG_DELAY 2000 // the delay upon entering configuration mode when the light is off
 #define CONFIG_MODE_LEVEL 11 // we use this for confirmation blinks during configuration mode
 
 // these are _offsets_, not the configuration values. don't change them. 
@@ -116,10 +116,10 @@ void off() {
  */
 void blink(uint8_t count) {
   uint8_t n = count;
-  while(n > 0) {
-    off();
-    set_level(CONFIG_MODE_LEVEL);
-    _delay_ms(100);
+  off();
+  while(n >= 0) {
+    set_level(30);
+    _delay_ms(200);
     off();
     n--;
   }
@@ -132,7 +132,7 @@ void blink(uint8_t count) {
  *
  */
 void confirm_config() {
-  ramp_both_ways(32, 3, 2, 5);
+  ramp_both_ways(32, 3, 2, 2);
   off();
 }
 
@@ -142,7 +142,7 @@ void confirm_config() {
  *
  */
 void confirm_change() {
-  ramp_both_ways(32, 3, 2, 2);
+  ramp_both_ways(32, 3, 2, 1);
   off();
 }
 
@@ -281,7 +281,7 @@ int main(void) {
   // load up our options and mode values
   uint8_t memory = read_option(OPT_MEMORY);
   uint8_t group = read_option(OPT_GROUP);
-  uint8_t mode_index = (memory == 1) ? read_option(OPT_LASTMODE) : 0;
+  uint8_t mode_index = read_option(OPT_LASTMODE);
   uint8_t modes[MAX_MODES];
   read_modes(modes, 0);
 
@@ -292,21 +292,32 @@ int main(void) {
   TCCR0B = 0x01; // pre-scaler for timer (1 => 1, 2 => 8, 3 => 64...)
 
   // if we see a value greater than CAP_SHORT, the user is trying to enter config mode
+  // if we're already in config mode, relax the speed a little bit
   // otherwise let's reset the fast_press_count
-  fast_press_count = (cap_val > CAP_SHORT) ? fast_press_count+1 : 0;
+  if ((config_mode && (cap_val > CAP_MEDIUM)) || (cap_val > CAP_SHORT)) {
+    fast_press_count += 1;
+  } else {
+    fast_press_count = 0;
+  }
 
   // if we see a value greater than CAP_MEDIUM, advance the mode
+  // also advances if we see a fast press
   if (cap_val > CAP_MEDIUM) {
     mode_index = next_mode(modes, mode_index);
+  // otherwise return to the first mode if memory is not turned on
+  } else if (!memory) {
+    mode_index = 0; 
   }
 
   // turn the light on
   if (config_mode != 1) {
     set_mode(modes, mode_index);
   } else {
+    off();
     set_level(CONFIG_MODE_LEVEL);
+    _delay_ms(100);
+    off();
   }
-    
 
   // charge up the cap
   charge_otc(); 
@@ -315,19 +326,20 @@ int main(void) {
 
     // enter into config mode 
     if (config_mode == 1) {
-      config_mode = 0; // make sure we exit config mode
-      _delay_ms(CONFIG_DELAY);
-
-      if (fast_press_count == 1) {
+      _delay_ms(2000);
+      
+      if (fast_press_count == 2) {
 	write_option(OPT_MEMORY, !read_option(OPT_MEMORY));
 	confirm_change();
-      }
-      
+      } 
+
       // reset the fast press count
       // turn the light back on, in the first mode?
       // not sure what makes the most sense here
-      fast_press_count = 0; 
-      set_mode(modes, 0); 
+      //      _delay_ms(CONFIG_DELAY);
+      config_mode = 0; // make sure we exit config mode
+      fast_press_count = 0;
+      set_mode(modes, 0);
     }
 
     // do something better here...
@@ -338,7 +350,6 @@ int main(void) {
       confirm_config();
       config_mode = 1; // enter config mode
       fast_press_count = 0; // reset fast press
-      _delay_ms(1000);
     }
   }
 }
