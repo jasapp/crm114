@@ -297,6 +297,7 @@ int main(void) {
   if ((config_mode && (cap_val > CAP_MEDIUM)) || (cap_val > CAP_SHORT)) {
     fast_press_count += 1;
   } else {
+    config_mode = 0;
     fast_press_count = 0;
   }
 
@@ -326,8 +327,7 @@ int main(void) {
 
     // enter into config mode 
     if (config_mode == 1) {
-      _delay_ms(2000);
-      
+      _delay_ms(1000);
       if (fast_press_count == 2) {
 	write_option(OPT_MEMORY, !read_option(OPT_MEMORY));
 	confirm_change();
